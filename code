@@ -1,0 +1,79 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
+import time
+import pymysql
+
+options = webdriver.ChromeOptions()
+options.add_argument('--no-sandbox')
+options.add_argument('window-size=1400,600')
+options.add_argument('Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36') #Смена user-agent
+chrome_prefs = {}
+options.experimental_options["prefs"] = chrome_prefs
+chrome_prefs["profile.default_content_settings"] = {"images": 2}
+chrome_prefs["profile.managed_default_content_settings"] = {"images": 2}
+
+try:
+  try:
+    connection = pymysql.connect(
+      host='gendalf.cf',
+      port=3308,
+      user='root',
+      password='1234567890',  # подключение к SQL
+      database='Kasyanov',
+      cursorclass=pymysql.cursors.DictCursor
+    )
+    print('Connected')
+  except Exception as ex:
+    print(ex)
+
+
+
+  url = 'https://www.dns-shop.ru/catalog/17a8a01d16404e77/smartfony/?order=2&groupBy=avails&stock=now-today-tomorrow-later'
+  wd = webdriver.Chrome('chromedriver', options=options)
+
+  wd.get(url)
+  time.sleep(2)
+
+
+
+  try:
+    wd.find_element(By.CLASS_NAME, 'w-choose-city-widget').click()
+    time.sleep(2)
+    wd.find_element(By.CLASS_NAME, 'form-control').send_keys('Ростов-на-Дону')
+    wd.find_element(By.LINK_TEXT, 'Ростов-на-Дону').click()
+    time.sleep(2)
+  except:
+    wd.find_element(By.CLASS_NAME, 'location-icon').click()
+    time.sleep(2)
+    wd.find_element(By.CLASS_NAME, 'form-control').send_keys('Ростов-на-Дону')
+    wd.find_element(By.LINK_TEXT, 'Ростов-на-Дону').click()
+    time.sleep(2)
+
+
+  wd.find_element(By.CLASS_NAME, 'pagination-widget__show-more-btn').click()
+  time.sleep(2)
+  box = wd.find_elements(By.CLASS_NAME, 'catalog-product')[:30]  # 30 дорогих смартфонов
+  number = 1
+  for i in box:
+    name = '\''+i.find_element(By.CLASS_NAME, 'catalog-product__name').text+'\''  # ищем название
+    price = '\''+i.find_element(By.CLASS_NAME, 'product-buy__price').text+'\''  # ищем цену
+    href = '\''+i.find_element(By.CLASS_NAME, 'catalog-product__name').get_attribute('href')+'\''  # ищем ссылку
+
+
+
+    print(f'Название: {name}\nЦена: {price}\nСсылка: {href}')
+    print(f'{number}\n')
+    number = number + 1
+
+    with connection.cursor() as cursor:
+      insert_query = f"INSERT INTO `smartphones` (name, price, href) VALUES ({name}, {price}, {href})"
+      cursor.execute(insert_query)
+      connection.commit()
+
+except Exception as ex:
+  print(ex)
+
+finally:
+  wd.quit()
